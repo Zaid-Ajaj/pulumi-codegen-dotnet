@@ -25,6 +25,20 @@ type Property = {
     else
         SchemaType.Optional(SchemaType.Output(SchemaType.Optional(this.schemaType)))
 
+type EnumCase = {
+    name: string option
+    description: string option
+    deprecationMessage: string option
+    value: string
+}
+
+type IntegerEnumCase = {
+    name: string option
+    description: string option
+    deprecationMessage: string option
+    value: int
+}
+
 [<RequireQualifiedAccess>]
 type SchemaType = 
   | String
@@ -40,10 +54,19 @@ type SchemaType =
   | Array of SchemaType
   | Output of SchemaType
   | Map of SchemaType
+  | StringEnum of EnumCase list
+  | IntegerEnum of IntegerEnumCase list
+  | Union of SchemaType list
   | Object of Map<string, Property>
 
 type TypeDefinition = {
     schemaType: SchemaType
+    description: string option
+    deprecationMessage: string option
+}
+
+type ObjectTypeDefinition = {
+    properties: Map<string, Property>
     description: string option
     deprecationMessage: string option
 }
@@ -55,14 +78,14 @@ type Resource = {
     inputProperties: Map<string, Property>
     properties: Map<string, Property>
     methods: Map<string, Function>
-    stateInputs: TypeDefinition option
+    stateInputs: ObjectTypeDefinition option
 }
 
 type Function = {
     token: string
     description: string option
     deprecationMessage: string option
-    inputs: Map<string, Property>
+    inputs: ObjectTypeDefinition option
     multiArgumentInputs: string list
     returnType: SchemaType
     isOverlay: bool
@@ -79,7 +102,13 @@ type DotnetPackageInfo = {
 
 type Schema = {
     name: string 
+    displayName: string option
     description: string option
+    homepage: string option
+    license : string option
+    repository: string option
+    publisher: string option
+    keywords: string list
     resources: Map<string, Resource>
     functions: Map<string, Function>
     types: Map<string, TypeDefinition>

@@ -5,3 +5,13 @@ Hackathon project at Pulumi during Q4 of 2022. Streaming the progress live on [t
 - Schema parsing
 - Client SDK-generation (for C#)
 - PCL-to-dotnet generation
+
+# Development and Testing
+```bash
+# build the project
+> dotnet build
+
+# run the tests
+> cd Tests
+> dotnet run
+```

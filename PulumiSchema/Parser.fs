@@ -11,7 +11,7 @@ let private optionalText (json: JObject) (key: string) : string option =
 let private text (json: JObject) (key: string) : string =
     match json.[key] with
     | :? JValue as value when value.Type = JTokenType.String -> value.Value.ToString()
-    | _ -> failwithf "Expected %s to be a string" key
+    | _ -> failwithf $"Expected %s{key} to be a string"
 
 let private readBoolean (json: JObject) (key: string) : bool =
     match json.[key] with
@@ -62,8 +62,70 @@ and parseTypeDefinition (typeDefJson: JObject) : TypeDefinition =
       description = description |> Option.map (fun desc -> desc.TrimEnd())
       deprecationMessage = deprecationMessage }
 
+and parseProperties (typeDefJson: JObject) : Map<string, Property> =
+    let required = optionalArrayText typeDefJson "required" |> Option.defaultValue []
+    Map.ofList [
+        if  typeDefJson.ContainsKey "properties" && typeDefJson["properties"].Type = JTokenType.Object then
+            let properties = typeDefJson["properties"] :?> JObject
+            for property in properties.Properties() do
+                let requiredProperty = List.contains property.Name required
+                let propertyObject = property.Value :?> JObject
+                property.Name, parsePropertyDefinition requiredProperty propertyObject
+    ]
+
+and parseObjectTypeDefinition (typeDefJson: JObject) : ObjectTypeDefinition =
+    let description = optionalText typeDefJson "description"
+    let deprecationMessage = optionalText typeDefJson "deprecationMessage" 
+    let properties = parseProperties typeDefJson
+    { properties = properties
+      description = description |> Option.map (fun desc -> desc.TrimEnd())
+      deprecationMessage = deprecationMessage }
+
 and parseType (typeJson: JObject) : SchemaType =
-    if typeJson.ContainsKey "type" then 
+    if typeJson.ContainsKey "$ref" then
+        match string typeJson.["$ref"] with
+        | "pulumi.json#/Archive" -> SchemaType.Archive
+        | "pulumi.json#/Asset" -> SchemaType.Asset
+        | "pulumi.json#/Json" -> SchemaType.Json
+        | "pulumi.json#/Any" -> SchemaType.Any
+        | referencedType ->  SchemaType.Ref referencedType
+    
+    elif typeJson.ContainsKey "type" && typeJson.ContainsKey "enum" then
+        match string typeJson.["type"] with
+        | "string" ->
+            let enumValues = typeJson.["enum"] :?> JArray
+            let cases : EnumCase seq =
+                enumValues
+                |> Seq.filter (fun enumValue -> enumValue.Type = JTokenType.Object)
+                |> Seq.cast<JObject>
+                |> Seq.map (fun enumJson -> { 
+                    value = text enumJson "value"
+                    name = optionalText enumJson "name" 
+                    description = optionalText enumJson "description" 
+                    deprecationMessage = optionalText enumJson "deprecationMessage"
+                })
+        
+            SchemaType.StringEnum (Seq.toList cases)
+        
+        | "integer" ->
+            let enumValues = typeJson.["enum"] :?> JArray
+            let cases : IntegerEnumCase seq =
+                enumValues
+                |> Seq.filter (fun enumValue -> enumValue.Type = JTokenType.Object)
+                |> Seq.cast<JObject>
+                |> Seq.map (fun enumJson -> { 
+                    value = enumJson["value"].ToObject<int>()
+                    name = optionalText enumJson "name" 
+                    description = optionalText enumJson "description" 
+                    deprecationMessage = optionalText enumJson "deprecationMessage"
+                })
+        
+            SchemaType.IntegerEnum (Seq.toList cases)
+
+        | otherwise ->
+            failwithf "Invalid enum definition from type: %s" otherwise
+
+    elif typeJson.ContainsKey "type" then 
         match string typeJson.["type"] with
         | "string" -> SchemaType.String
         | "number" -> SchemaType.Number
@@ -73,33 +135,28 @@ and parseType (typeJson: JObject) : SchemaType =
             let elementType = parseType (typeJson.["items"] :?> JObject)
             SchemaType.Array elementType
         | "object" when not (typeJson.ContainsKey "additionalProperties") ->
-            let required = optionalArrayText typeJson "required" |> Option.defaultValue []
-            let properties = typeJson.["properties"] :?> JObject
-            let propertiesMap = Map.ofList [
-                for property in properties.Properties() do
-                    let requiredProperty = List.contains property.Name required
-                    let propertyObject = property.Value :?> JObject
-                    property.Name, parsePropertyDefinition requiredProperty propertyObject
-            ]
-
-            SchemaType.Object propertiesMap
+            let properties = parseProperties typeJson
+            SchemaType.Object properties
         | "object" ->
             // assume additionalProperties is a type
             let additionalProperties = parseType (typeJson.["additionalProperties"] :?> JObject)
             SchemaType.Map additionalProperties
-
         | otherwise ->
             failwithf "Invalid type definition: %s" otherwise
 
-    elif typeJson.ContainsKey "$ref" then
-        match string typeJson.["$ref"] with
-        | "pulumi.json#/Archive" -> SchemaType.Archive
-        | "pulumi.json#/Asset" -> SchemaType.Asset
-        | "pulumi.json#/Json" -> SchemaType.Json
-        | "pulumi.json#/Any" -> SchemaType.Any
-        | referencedType ->  SchemaType.Ref referencedType
+    elif typeJson.ContainsKey "properties" then 
+        let properties = parseProperties typeJson
+        SchemaType.Object properties
+    elif typeJson.ContainsKey "oneOf" then
+        let oneOfTypes = typeJson.["oneOf"] :?> JArray
+        oneOfTypes
+        |> Seq.filter (fun typeJson -> typeJson.Type = JTokenType.Object)
+        |> Seq.cast<JObject>
+        |> Seq.map parseType
+        |> Seq.toList
+        |> SchemaType.Union
     else 
-        failwith "Invalid type definition"
+        failwith $"Invalid type definition: \n{typeJson.ToString()}"
 
 let parseResource (token: string) (functions: Map<string, Function>) (resourceJson: JObject) : Resource =
     let requiredInputs = optionalArrayText resourceJson "requiredInputs" |> Option.defaultValue []
@@ -125,7 +182,7 @@ let parseResource (token: string) (functions: Map<string, Function>) (resourceJs
     let stateInputs = 
         if resourceJson.ContainsKey "stateInputs" && resourceJson["stateInputs"].Type = JTokenType.Object then
             let stateInputsObject = resourceJson.["stateInputs"] :?> JObject
-            Some (parseTypeDefinition stateInputsObject)
+            Some (parseObjectTypeDefinition stateInputsObject)
         else
             None
 
@@ -140,25 +197,39 @@ let parseResource (token: string) (functions: Map<string, Function>) (resourceJs
     }
 
 let parseFunction (token: string) (functionJson: JObject) : Function =
-    let requiredInputs = optionalArrayText functionJson "requiredInputs" |> Option.defaultValue []
-    let parseProperties (from: string) = Map.ofList [
-        if functionJson.ContainsKey from && functionJson[from].Type = JTokenType.Object then
-            let propertiesObject = functionJson[from] :?> JObject
-            
-            for property in propertiesObject.Properties() do
-                let required = List.contains property.Name requiredInputs
-                property.Name, parsePropertyDefinition required (property.Value :?> JObject)
-    ]
+    try 
+        let inputs = 
+            if functionJson.ContainsKey "inputs" && functionJson.["inputs"].Type = JTokenType.Object then
+                let inputsObject = functionJson.["inputs"] :?> JObject
+                if inputsObject.Count = 0 then
+                    None
+                else
+                    Some (parseObjectTypeDefinition inputsObject)
+            else
+                None
 
-    {
-        token = token
-        deprecationMessage = optionalText functionJson "deprecationMessage"
-        description = optionalText functionJson "description"
-        inputs = parseProperties "inputs"
-        multiArgumentInputs = optionalArrayText functionJson "multiArgumentInputs" |> Option.defaultValue []
-        returnType = parseType (functionJson.["outputs"] :?> JObject)
-        isOverlay = readBoolean functionJson "isOverlay"
-    }
+        let returnType = 
+            if functionJson.ContainsKey "outputs" && functionJson.["outputs"].Type = JTokenType.Object then
+                let outputsObject = functionJson.["outputs"] :?> JObject
+                if outputsObject.Count = 0 then
+                    SchemaType.Any
+                else
+                    parseType outputsObject
+            else
+                SchemaType.Any
+
+        {
+            token = token
+            deprecationMessage = optionalText functionJson "deprecationMessage"
+            description = optionalText functionJson "description"
+            inputs = inputs
+            multiArgumentInputs = optionalArrayText functionJson "multiArgumentInputs" |> Option.defaultValue []
+            returnType = returnType
+            isOverlay = readBoolean functionJson "isOverlay"
+        }
+
+    with ex -> 
+        failwithf "Failed to parse function %s: %s" token ex.Message
 
 let parseDotnetPackageInfo (schemaJson: JObject) : DotnetPackageInfo = 
     let defaultDotnetPackageInfo = {
@@ -191,7 +262,13 @@ let parseSchema (json: string) : Schema =
     let schemaJson = JObject.Parse(json)
     let name = text schemaJson "name"
     let description = optionalText schemaJson "description"
+    let displayName = optionalText schemaJson "displayName"
+    let homepage = optionalText schemaJson "homepage"
+    let license = optionalText schemaJson "license"
+    let repository = optionalText schemaJson "repository"
+    let keywords = optionalArrayText schemaJson "keywords" |> Option.defaultValue []
     let version = optionalText schemaJson "version"
+    let publisher = optionalText schemaJson "publisher"
 
     let functions = Map.ofList [
         if schemaJson.ContainsKey "functions" && schemaJson["functions"].Type = JTokenType.Object then 
@@ -223,6 +300,12 @@ let parseSchema (json: string) : Schema =
     let dotnetPackageInfo = parseDotnetPackageInfo schemaJson
 
     { name = name
+      displayName = displayName
+      homepage = homepage
+      license = license
+      repository = repository
+      publisher = publisher
+      keywords = keywords
       description = description
       resources = resources
       functions = functions

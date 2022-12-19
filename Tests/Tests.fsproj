@@ -7,10 +7,15 @@
 
   <ItemGroup>
     <Compile Include="Program.fs" />
+    <Content Include="schemas\*.json" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PulumiSchema\PulumiSchema.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Expecto" Version="9.0.4" />
   </ItemGroup>
 
 </Project>
