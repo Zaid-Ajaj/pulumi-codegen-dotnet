@@ -75,6 +75,7 @@ type Resource = {
     token: string
     description: string option
     isComponent: bool
+    isProvider: bool
     inputProperties: Map<string, Property>
     properties: Map<string, Property>
     methods: Map<string, Function>
@@ -110,7 +111,9 @@ type Schema = {
     publisher: string option
     keywords: string list
     resources: Map<string, Resource>
+    provider: Resource option
     functions: Map<string, Function>
+    config: Map<string, Property>
     types: Map<string, TypeDefinition>
     dotnetPackageInfo: DotnetPackageInfo
     version: string option

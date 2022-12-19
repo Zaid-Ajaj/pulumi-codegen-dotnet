@@ -190,6 +190,7 @@ let parseResource (token: string) (functions: Map<string, Function>) (resourceJs
         token = token
         description = optionalText resourceJson "description"
         isComponent = readBoolean resourceJson "isComponent"
+        isProvider = readBoolean resourceJson "isProvider"
         inputProperties = parseProperties "inputProperties"
         properties = parseProperties "properties"
         methods = methods
@@ -258,6 +259,23 @@ let parseDotnetPackageInfo (schemaJson: JObject) : DotnetPackageInfo =
     else
         defaultDotnetPackageInfo
 
+let parseConfig (schemaJson: JObject) = 
+    if schemaJson.ContainsKey "config" && schemaJson["config"].Type = JTokenType.Object then
+        let configJson = schemaJson["config"] :?> JObject
+        parseProperties configJson
+    else 
+        Map.empty
+
+let parseProvider (name: string) functions (schemaJson: JObject) = 
+    if schemaJson.ContainsKey "provider" && schemaJson["provider"].Type = JTokenType.Object then
+        let providerJson = schemaJson["provider"] :?> JObject
+        if providerJson.Count = 0 then
+            None
+        else
+            Some (parseResource $"pulumi:providers:{name}" functions providerJson)
+    else 
+        None
+
 let parseSchema (json: string) : Schema =
     let schemaJson = JObject.Parse(json)
     let name = text schemaJson "name"
@@ -269,6 +287,7 @@ let parseSchema (json: string) : Schema =
     let keywords = optionalArrayText schemaJson "keywords" |> Option.defaultValue []
     let version = optionalText schemaJson "version"
     let publisher = optionalText schemaJson "publisher"
+    let config = parseConfig schemaJson
 
     let functions = Map.ofList [
         if schemaJson.ContainsKey "functions" && schemaJson["functions"].Type = JTokenType.Object then 
@@ -298,6 +317,7 @@ let parseSchema (json: string) : Schema =
     ]
 
     let dotnetPackageInfo = parseDotnetPackageInfo schemaJson
+    let provider = parseProvider name functions schemaJson
 
     { name = name
       displayName = displayName
@@ -306,8 +326,10 @@ let parseSchema (json: string) : Schema =
       repository = repository
       publisher = publisher
       keywords = keywords
+      config = config
       description = description
       resources = resources
+      provider = provider
       functions = functions
       types = types
       dotnetPackageInfo = dotnetPackageInfo
