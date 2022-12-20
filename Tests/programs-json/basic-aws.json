@@ -82,10 +82,10 @@
       }
     }
   ],
-  "packages": [
+  "plugins": [
     {
       "name": "aws",
-      "version": "5.18.0"
+      "version": "5.24.0"
     }
   ]
 }

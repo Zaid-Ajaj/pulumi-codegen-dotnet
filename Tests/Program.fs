@@ -43,7 +43,13 @@ let tests = testList "Parsing" [
     test "Parsing basic JSON AWS program works" {
         let program = File.ReadAllText(Path.Combine(cwd, "programs-json", "basic-aws.json")) 
         let parsedProgram = PCL.parseProgram program
-        Expect.equal parsedProgram.nodes.Length 3 "There is one node in the program"
+        Expect.equal parsedProgram.nodes.Length 3 "Node count is correct"
+    }
+
+    test "Parsing webserver JSON AWS program works" {
+        let program = File.ReadAllText(Path.Combine(cwd, "programs-json", "webserver.json")) 
+        let parsedProgram = PCL.parseProgram program
+        Expect.equal parsedProgram.nodes.Length 9 "Node count is correct"
     }
 ]
 

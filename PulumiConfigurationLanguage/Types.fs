@@ -17,9 +17,14 @@ type TraversalKind =
 
 type ObjectConsExpression = { properties : Map<string, SyntaxExpr> }
 type TupleConsExpression = { items : SyntaxExpr list }
-type FunctionCallExpression = { name : string; args : SyntaxExpr list }
+type FunctionCallExpression = { name : string; args: SyntaxExpr list }
 type ScopeTraversalExpression = { rootName : string; traversal : TraversalKind list }
 type RelativeTraversalExpression = { source: SyntaxExpr; traversal : TraversalKind list }
+type IndexExpression = { collection: SyntaxExpr; key: SyntaxExpr }
+type ConditionalExpression = { condition: SyntaxExpr; trueExpr: SyntaxExpr; falseExpr: SyntaxExpr }
+type BinaryOpExpression = { left: SyntaxExpr; right: SyntaxExpr; operation: string }
+type UnaryOpExpression = { operand: SyntaxExpr; operation: string }
+type AnonymousFunctionExpression = { parameters: string list; body: SyntaxExpr }
 
 [<RequireQualifiedAccess>]
 type SyntaxExpr = 
@@ -30,12 +35,28 @@ type SyntaxExpr =
     | FunctionCallExpression of FunctionCallExpression
     | ScopeTraversalExpression of ScopeTraversalExpression
     | RelativeTraversalExpression of RelativeTraversalExpression
+    | IndexExpression of IndexExpression
+    | ConditionalExpression of ConditionalExpression
+    | BinaryOpExpression of BinaryOpExpression
+    | UnaryOpExpression of UnaryOpExpression
+    | AnonymousFunctionExpression of AnonymousFunctionExpression
+
+
+type ResourceOptions = {
+    dependsOn: SyntaxExpr option
+    protect: SyntaxExpr option
+    provider: SyntaxExpr option
+    version: SyntaxExpr option
+    ignoreChanges: SyntaxExpr option
+    parent: SyntaxExpr option
+}
 
 type Resource = {
     name: string 
     logicalName: string
     token: string
     inputs: Map<string, SyntaxExpr>
+    options: ResourceOptions
 }
 
 type OutputVariable = {
@@ -51,9 +72,9 @@ type LocalVariable = {
 
 type ConfigVariable = {
     name: string
-    configType: string
+    defaultValue: SyntaxExpr option
     logicalName: string
-    value: SyntaxExpr
+    configType: string
 }
 
 [<RequireQualifiedAccess>]
@@ -63,6 +84,12 @@ type Node =
     | LocalVariable of LocalVariable
     | ConfigVariable of ConfigVariable
 
+type PluginReference = {
+    name: string
+    version: string
+}
+
 type Program = {
     nodes : Node list
+    plugins: PluginReference list
 }

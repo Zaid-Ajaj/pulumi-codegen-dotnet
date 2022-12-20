@@ -1,0 +1,292 @@
+{
+    "nodes": [
+      {
+        "inputs": {
+          "ingress": {
+            "items": [
+              {
+                "properties": {
+                  "cidrBlocks": {
+                    "items": [
+                      {
+                        "type": "LiteralValueExpression",
+                        "value": "0.0.0.0/0"
+                      }
+                    ],
+                    "type": "TupleConsExpression"
+                  },
+                  "fromPort": {
+                    "type": "LiteralValueExpression",
+                    "value": 80
+                  },
+                  "protocol": {
+                    "type": "LiteralValueExpression",
+                    "value": "tcp"
+                  },
+                  "toPort": {
+                    "type": "LiteralValueExpression",
+                    "value": 80
+                  }
+                },
+                "type": "ObjectConsExpression"
+              }
+            ],
+            "type": "TupleConsExpression"
+          }
+        },
+        "logicalName": "WebSecGrp",
+        "name": "webSecGrp",
+        "options": {
+          "protect": {
+            "type": "LiteralValueExpression",
+            "value": true
+          }
+        },
+        "token": "aws:ec2:SecurityGroup",
+        "type": "Resource"
+      },
+      {
+        "inputs": {
+          "ami": {
+            "rootName": "amazonLinuxAmi",
+            "traversal": [
+              {
+                "name": "amazonLinuxAmi",
+                "type": "TraverseRoot"
+              }
+            ],
+            "type": "ScopeTraversalExpression"
+          },
+          "instanceType": {
+            "rootName": "instanceType",
+            "traversal": [
+              {
+                "name": "instanceType",
+                "type": "TraverseRoot"
+              }
+            ],
+            "type": "ScopeTraversalExpression"
+          },
+          "userData": {
+            "parts": [
+              {
+                "type": "LiteralValueExpression",
+                "value": "#!/bin/bash\necho 'Hello, World from "
+              },
+              {
+                "rootName": "webSecGrp",
+                "traversal": [
+                  {
+                    "name": "webSecGrp",
+                    "type": "TraverseRoot"
+                  },
+                  {
+                    "name": "arn",
+                    "type": "TraverseAttr"
+                  }
+                ],
+                "type": "ScopeTraversalExpression"
+              },
+              {
+                "type": "LiteralValueExpression",
+                "value": "!' \u003e index.html\nnohup python -m SimpleHTTPServer 80 \u0026"
+              }
+            ],
+            "type": "TemplateExpression"
+          },
+          "vpcSecurityGroupIds": {
+            "items": [
+              {
+                "rootName": "webSecGrp",
+                "traversal": [
+                  {
+                    "name": "webSecGrp",
+                    "type": "TraverseRoot"
+                  },
+                  {
+                    "name": "id",
+                    "type": "TraverseAttr"
+                  }
+                ],
+                "type": "ScopeTraversalExpression"
+              }
+            ],
+            "type": "TupleConsExpression"
+          }
+        },
+        "logicalName": "WebServer",
+        "name": "webServer",
+        "token": "aws:ec2:Instance",
+        "type": "Resource"
+      },
+      {
+        "inputs": {
+          "region": {
+            "type": "LiteralValueExpression",
+            "value": "us-east-2"
+          }
+        },
+        "logicalName": "UsEast2Provider",
+        "name": "usEast2Provider",
+        "token": "pulumi:providers:aws",
+        "type": "Resource"
+      },
+      {
+        "inputs": {},
+        "logicalName": "MyBucket",
+        "name": "myBucket",
+        "options": {
+          "provider": {
+            "rootName": "usEast2Provider",
+            "traversal": [
+              {
+                "name": "usEast2Provider",
+                "type": "TraverseRoot"
+              }
+            ],
+            "type": "ScopeTraversalExpression"
+          }
+        },
+        "token": "aws:s3:Bucket",
+        "type": "Resource"
+      },
+      {
+        "configType": "string",
+        "defaultValue": {
+          "type": "LiteralValueExpression",
+          "value": "t3.micro"
+        },
+        "logicalName": "InstanceType",
+        "name": "instanceType",
+        "type": "ConfigVariable"
+      },
+      {
+        "logicalName": "amazonLinuxAmi",
+        "name": "amazonLinuxAmi",
+        "type": "LocalVariable",
+        "value": {
+          "source": {
+            "args": [
+              {
+                "type": "LiteralValueExpression",
+                "value": "aws::getAmi"
+              },
+              {
+                "properties": {
+                  "filters": {
+                    "items": [
+                      {
+                        "properties": {
+                          "name": {
+                            "type": "LiteralValueExpression",
+                            "value": "name"
+                          },
+                          "values": {
+                            "items": [
+                              {
+                                "type": "LiteralValueExpression",
+                                "value": "amzn-ami-hvm-*-x86_64-ebs"
+                              }
+                            ],
+                            "type": "TupleConsExpression"
+                          }
+                        },
+                        "type": "ObjectConsExpression"
+                      }
+                    ],
+                    "type": "TupleConsExpression"
+                  },
+                  "mostRecent": {
+                    "type": "LiteralValueExpression",
+                    "value": true
+                  },
+                  "owners": {
+                    "items": [
+                      {
+                        "type": "LiteralValueExpression",
+                        "value": "137112412989"
+                      }
+                    ],
+                    "type": "TupleConsExpression"
+                  }
+                },
+                "type": "ObjectConsExpression"
+              }
+            ],
+            "name": "invoke",
+            "type": "FunctionCallExpression"
+          },
+          "traversal": [
+            {
+              "name": "id",
+              "type": "TraverseAttr"
+            }
+          ],
+          "type": "RelativeTraversalExpression"
+        }
+      },
+      {
+        "logicalName": "InstanceId",
+        "name": "instanceId",
+        "type": "OutputVariable",
+        "value": {
+          "rootName": "webServer",
+          "traversal": [
+            {
+              "name": "webServer",
+              "type": "TraverseRoot"
+            },
+            {
+              "name": "id",
+              "type": "TraverseAttr"
+            }
+          ],
+          "type": "ScopeTraversalExpression"
+        }
+      },
+      {
+        "logicalName": "PublicIp",
+        "name": "publicIp",
+        "type": "OutputVariable",
+        "value": {
+          "rootName": "webServer",
+          "traversal": [
+            {
+              "name": "webServer",
+              "type": "TraverseRoot"
+            },
+            {
+              "name": "publicIp",
+              "type": "TraverseAttr"
+            }
+          ],
+          "type": "ScopeTraversalExpression"
+        }
+      },
+      {
+        "logicalName": "PublicHostName",
+        "name": "publicHostName",
+        "type": "OutputVariable",
+        "value": {
+          "rootName": "webServer",
+          "traversal": [
+            {
+              "name": "webServer",
+              "type": "TraverseRoot"
+            },
+            {
+              "name": "publicDns",
+              "type": "TraverseAttr"
+            }
+          ],
+          "type": "ScopeTraversalExpression"
+        }
+      }
+    ],
+    "plugins": [
+      {
+        "name": "aws",
+        "version": "5.24.0"
+      }
+    ]
+  }

@@ -137,10 +137,102 @@ let parseExpression (json: JObject) : SyntaxExpr option =
                 Some (SyntaxExpr.RelativeTraversalExpression { traversal = traversal; source = source })
             | None -> 
                 None
+
+        | "IndexExpression" ->
+            if not (json.ContainsKey "key") || json["key"].Type <> JTokenType.Object then
+                None
+            elif not (json.ContainsKey "collection") || json["collection"].Type <> JTokenType.Object then
+                None
+            else
+                let key = json["key"] :?> JObject
+                let collection = json["collection"] :?> JObject
+                match parseExpression key, parseExpression collection with
+                | Some key, Some collection ->
+                    Some (SyntaxExpr.IndexExpression { key = key; collection = collection })
+                | _ ->
+                    None
+
+        | "ConditionalExpression" -> 
+            if not (json.ContainsKey "condition") || json["condition"].Type <> JTokenType.Object then
+                None
+            elif not (json.ContainsKey "trueExpr") || json["trueExpr"].Type <> JTokenType.Object then
+                None
+            elif not (json.ContainsKey "falseExpr") || json["falseExpr"].Type <> JTokenType.Object then
+                None
+            else
+                let condition = json["condition"] :?> JObject
+                let trueExpr = json["trueExpr"] :?> JObject
+                let falseExpr = json["falseExpr"] :?> JObject
+                match parseExpression condition, parseExpression trueExpr, parseExpression falseExpr with
+                | Some condition, Some trueExpr, Some falseExpr ->
+                    Some (SyntaxExpr.ConditionalExpression { condition = condition; trueExpr = trueExpr; falseExpr = falseExpr })
+                | _ -> 
+                    None
+
+            | "BinaryOpExpression" ->
+                if not (json.ContainsKey "left") || json["left"].Type <> JTokenType.Object then
+                    None
+                elif not (json.ContainsKey "right") || json["right"].Type <> JTokenType.Object then
+                    None
+                elif not (json.ContainsKey "operation") || json["operation"].Type <> JTokenType.String then
+                    None
+                else
+                    let left = json["left"] :?> JObject
+                    let right = json["right"] :?> JObject
+                    let operation = text json "operation"
+                    match parseExpression left, parseExpression right with
+                    | Some left, Some right ->
+                        Some (SyntaxExpr.BinaryOpExpression { left = left; right = right; operation = operation })
+                    | _ -> 
+                        None
+
+            | "UnaryOpExpression" ->
+                if not (json.ContainsKey "operand") || json["operand"].Type <> JTokenType.Object then
+                    None
+                elif not (json.ContainsKey "operation") || json["operation"].Type <> JTokenType.String then
+                    None
+                else
+                    let operand = json["operand"] :?> JObject
+                    let operation = text json "operation"
+                    match parseExpression operand with
+                    | Some operand ->
+                        Some (SyntaxExpr.UnaryOpExpression { operand = operand; operation = operation })
+                    | _ -> 
+                        None
+
+            | "AnonymousFunctionExpression" -> 
+                if not (json.ContainsKey "parameters") || json["parameters"].Type <> JTokenType.Array then
+                    None
+                elif not (json.ContainsKey "body") || json["body"].Type <> JTokenType.Object then
+                    None
+                else
+                    let parameters = json["parameters"].ToObject<string array>() |> Array.toList
+                    let body = json["body"] :?> JObject
+                    match parseExpression body with
+                    | Some body ->
+                        Some (SyntaxExpr.AnonymousFunctionExpression { parameters = parameters; body = body })
+                    | _ -> 
+                        None
         | _ -> 
             None
     else 
         None
+
+let optionalObject (json: JObject) (key: string) : JObject option = 
+    if json.ContainsKey key && json[key].Type = JTokenType.Object then
+        Some (json[key] :?> JObject)
+    else
+        None
+
+let parseResourceOptions (json: JObject) : ResourceOptions = 
+    {
+        dependsOn = optionalObject json "dependsOn"  |> Option.bind parseExpression
+        parent = optionalObject json "parent" |> Option.bind parseExpression
+        protect = optionalObject json "protect" |> Option.bind parseExpression
+        ignoreChanges = optionalObject json "ignoreChanges" |> Option.bind parseExpression
+        provider = optionalObject json "provider" |> Option.bind parseExpression
+        version = optionalObject json "version" |> Option.bind parseExpression
+    }
 
 let parseResource (json: JObject) : Resource = 
     let name = text json "name"
@@ -161,7 +253,14 @@ let parseResource (json: JObject) : Resource =
         else
             Seq.empty
 
-    { name = name; logicalName = logicalName; token = token; inputs = Map.ofSeq inputs }
+    let options = 
+        if json.ContainsKey "options" && json["options"].Type = JTokenType.Object then
+            let optionsObject = json["options"] :?> JObject
+            parseResourceOptions optionsObject
+        else
+            parseResourceOptions (JObject.Parse "{}")
+
+    { name = name; logicalName = logicalName; token = token; inputs = Map.ofSeq inputs; options = options }
 
 let parseOutputVariable (json: JObject) : OutputVariable option = 
     let name = text json "name"
@@ -170,7 +269,6 @@ let parseOutputVariable (json: JObject) : OutputVariable option =
     match parseExpression value with
     | Some value -> Some { name = name; logicalName = logicalName; value = value }
     | None -> None
-
 
 let parseNode (json: JObject) : Node option = 
     if json.ContainsKey "type" && json["type"].Type = JTokenType.String then
@@ -185,14 +283,34 @@ let parseNode (json: JObject) : Node option =
             | None -> None
         
         | "LocalVariable" ->
-            None
+            let name = text json "name"
+            let value = json["value"] :?> JObject
+            match parseExpression value with
+            | Some value -> Some (Node.LocalVariable { name = name; value = value })
+            | None -> None
 
         | "ConfigVariable" ->
-            None
+            let name = text json "name"
+            let logicalName = text json "logicalName"
+            let configType = text json "configType"
+            let configNode = Node.ConfigVariable { 
+                name = name
+                logicalName = logicalName
+                configType = configType
+                defaultValue = optionalObject json "defaultValue" |> Option.bind parseExpression
+            }
+
+            Some configNode
+
         | _ -> 
             None
     else
         None
+
+let parsePluginReference (json: JObject) : PluginReference =
+    let name = text json "name"
+    let version = text json "version"
+    { name = name; version = version }
 
 let parseProgram (json: string) : Program = 
     let programJson = JObject.Parse(json)
@@ -206,4 +324,14 @@ let parseProgram (json: string) : Program =
         else   
             []
 
-    { nodes = nodes }
+    let pluginReferences = 
+        if programJson.ContainsKey "plugins" && programJson["plugins"].Type = JTokenType.Array then
+            programJson["plugins"] :?> JArray
+            |> Seq.filter (fun pluginReference -> pluginReference.Type = JTokenType.Object)
+            |> Seq.cast<JObject>
+            |> Seq.map parsePluginReference
+            |> Seq.toList
+        else
+            []
+
+    { plugins = pluginReferences; nodes = nodes }
