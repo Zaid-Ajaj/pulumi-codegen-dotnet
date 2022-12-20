@@ -1,0 +1,91 @@
+{
+  "nodes": [
+    {
+      "inputs": {
+        "website": {
+          "properties": {
+            "indexDocument": {
+              "type": "LiteralValueExpression",
+              "value": "index.html"
+            }
+          },
+          "type": "ObjectConsExpression"
+        }
+      },
+      "logicalName": "my-bucket",
+      "name": "myBucket",
+      "token": "aws:s3:Bucket",
+      "type": "Resource"
+    },
+    {
+      "inputs": {
+        "acl": {
+          "type": "LiteralValueExpression",
+          "value": "public-read"
+        },
+        "bucket": {
+          "rootName": "myBucket",
+          "traversal": [
+            {
+              "name": "myBucket",
+              "type": "TraverseRoot"
+            }
+          ],
+          "type": "ScopeTraversalExpression"
+        },
+        "contentType": {
+          "type": "LiteralValueExpression",
+          "value": "text/html"
+        },
+        "source": {
+          "args": [
+            {
+              "type": "LiteralValueExpression",
+              "value": "\u003ch1\u003eHello, world!\u003c/h1\u003e"
+            }
+          ],
+          "name": "stringAsset",
+          "type": "FunctionCallExpression"
+        }
+      },
+      "logicalName": "index.html",
+      "name": "indexHtml",
+      "token": "aws:s3:BucketObject",
+      "type": "Resource"
+    },
+    {
+      "logicalName": "bucketEndpoint",
+      "name": "bucketEndpoint",
+      "type": "OutputVariable",
+      "value": {
+        "parts": [
+          {
+            "type": "LiteralValueExpression",
+            "value": "http://"
+          },
+          {
+            "rootName": "myBucket",
+            "traversal": [
+              {
+                "name": "myBucket",
+                "type": "TraverseRoot"
+              },
+              {
+                "name": "websiteEndpoint",
+                "type": "TraverseAttr"
+              }
+            ],
+            "type": "ScopeTraversalExpression"
+          }
+        ],
+        "type": "TemplateExpression"
+      }
+    }
+  ],
+  "packages": [
+    {
+      "name": "aws",
+      "version": "5.18.0"
+    }
+  ]
+}

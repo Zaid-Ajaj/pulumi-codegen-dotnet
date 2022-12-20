@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PulumiSchema\PulumiSchema.fsproj" />
+    <ProjectReference Include="..\PulumiConfigurationLanguage\PulumiConfigurationLanguage.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

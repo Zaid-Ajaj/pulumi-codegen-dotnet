@@ -3,10 +3,12 @@ open PulumiSchema
 open Expecto
 open Expecto.Logging
 
+module PCL = PulumiConfigurationLanguage.Parser
+
 let cwd = __SOURCE_DIRECTORY__
 let schemas = Path.Combine(cwd, "schemas")
 
-let tests = testList "Schema parsing" [
+let tests = testList "Parsing" [
 
     test "Parse random-4.2.0" { 
         let schema = File.ReadAllText(Path.Combine(schemas, "random-4.2.0.json"))
@@ -37,8 +39,13 @@ let tests = testList "Schema parsing" [
         let parsedSchema = Parser.parseSchema schema
         Expect.equal parsedSchema.name "awsx" "The name of the schema is correct"
     }
-]
 
+    test "Parsing basic JSON AWS program works" {
+        let program = File.ReadAllText(Path.Combine(cwd, "programs-json", "basic-aws.json")) 
+        let parsedProgram = PCL.parseProgram program
+        Expect.equal parsedProgram.nodes.Length 3 "There is one node in the program"
+    }
+]
 
 [<EntryPoint>]
 let main argv = 
