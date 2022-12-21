@@ -17,27 +17,40 @@ let tests = testList "Parsing" [
     }
 
     test "Parse aws-5.16.2" { 
-        let schema = File.ReadAllText(Path.Combine(schemas, "aws-5.16.2.json"))
-        let parsedSchema = Parser.parseSchema schema
-        Expect.equal parsedSchema.name "aws" "The name of the schema is correct"
+        let schema = SchemaLoader.FromJsonFile(Path.Combine(schemas, "aws-5.16.2.json"))
+        Expect.equal schema.name "aws" "The name of the schema is correct"
     }
 
     test "Parse aws-native-0.13.0" { 
-        let schema = File.ReadAllText(Path.Combine(schemas, "aws-native-0.13.0.json"))
-        let parsedSchema = Parser.parseSchema schema
-        Expect.equal parsedSchema.name "aws-native" "The name of the schema is correct"
+        let schema = SchemaLoader.FromJsonFile(Path.Combine(schemas, "aws-native-0.13.0.json"))
+        Expect.equal schema.name "aws-native" "The name of the schema is correct"
     }
 
     test "Parse azure-native-1.56.0" { 
-        let schema = File.ReadAllText(Path.Combine(schemas, "azure-native-1.56.0.json"))
-        let parsedSchema = Parser.parseSchema schema
-        Expect.equal parsedSchema.name "azure-native" "The name of the schema is correct"
+        let schema = SchemaLoader.FromJsonFile(Path.Combine(schemas, "azure-native-1.56.0.json"))
+        Expect.equal schema.name "azure-native" "The name of the schema is correct"
     }
 
     test "Parse awsx-1.0.0-beta.5" { 
-        let schema = File.ReadAllText(Path.Combine(schemas, "awsx-1.0.0-beta.5.json"))
-        let parsedSchema = Parser.parseSchema schema
-        Expect.equal parsedSchema.name "awsx" "The name of the schema is correct"
+        let schema = SchemaLoader.FromJsonFile(Path.Combine(schemas, "awsx-1.0.0-beta.5.json"))
+        Expect.equal schema.name "awsx" "The name of the schema is correct"
+    }
+
+    test "Loading aws schema from Pulumi CLI using specific version" {
+        let schema = SchemaLoader.FromPulumi("aws", "5.16.2")
+        match schema with
+        | Ok schema -> 
+            Expect.equal schema.name "aws" "The name of the schema is correct"
+            Expect.equal schema.version (Some "5.16.2") "The version of the schema is correct"
+        | Result.Error errorMessage -> 
+            failwith $"could not load schema aws@5.16.2: {errorMessage}"
+    }
+
+    test "Loading aws schema from Pulumi CLI using latest" {
+        let schema = SchemaLoader.FromPulumi("aws")
+        match schema with
+        | Ok schema -> Expect.equal schema.name "aws" "The name of the schema is correct"
+        | Result.Error errorMessage -> failwith $"could not load schema aws@5.16.2: {errorMessage}"
     }
 
     test "Parsing basic JSON AWS program works" {
