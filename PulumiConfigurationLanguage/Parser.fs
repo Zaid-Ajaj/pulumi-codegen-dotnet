@@ -320,6 +320,11 @@ let parseProgram (json: string) : Program =
             |> Seq.filter (fun node -> node.Type = JTokenType.Object)
             |> Seq.cast<JObject>
             |> Seq.choose parseNode
+            |> Seq.sortBy (function
+                | Node.ConfigVariable _ -> 0
+                | Node.LocalVariable _ -> 1
+                | Node.Resource _ -> 2
+                | Node.OutputVariable _ -> 3)
             |> Seq.toList
         else   
             []
