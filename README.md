@@ -6,13 +6,16 @@ Hackathon project at Pulumi during Q4 of 2022. Streaming the progress live on [t
   - [x] Resources
   - [x] Functions
   - [x] Types
+  - [x] Config
   - [x] Provider
 
-- [ ] Schema loading
+- [x] Schema loading
 
 - [ ] Client SDK-generation (for C#)
 
-- [ ] PCL-to-dotnet generation
+- [x] PCL-to-dotnet generation
+  - [x] PCL parsing as a syntax tree
+  - [x] PCL to dotnet code generation (partial)
 
 # Development and Testing
 ```bash

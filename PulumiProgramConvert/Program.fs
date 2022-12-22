@@ -14,8 +14,11 @@ let useTempDir (f: string -> 'a) : 'a =
 
 [<EntryPoint>]
 let main (args: string[]) : int =
+    if args = [| "--version" |] then
+        printfn "0.1.0"
+        0
+    else
     let cwd = Directory.GetCurrentDirectory()
-    printfn "Current working directory: %s" cwd
     let files = Directory.GetFiles(cwd) |> Array.map Path.GetFileName
     if not (Array.contains "Pulumi.yaml" files) then
         printfn "No Pulumi.yaml found in current directory"
@@ -39,26 +42,44 @@ let main (args: string[]) : int =
                 Error output.StandardError
             else
                 let programJson = File.ReadAllText(Path.Combine(tempDir, "program.json"))
-                Ok (PulumiConfigurationLanguage.Parser.parseProgram programJson)
+                Ok (programJson, PulumiConfigurationLanguage.Parser.parseProgram programJson)
         )
 
         match convertedProgram with 
-        | Ok program -> 
-            let outDirectory = 
-                match args with
-                | [| "--out"; outDir |] -> 
-                    if not (Directory.Exists(Path.Combine(cwd, outDir))) then
-                        let _ = Directory.CreateDirectory(Path.Combine(cwd, outDir))
-                        Path.Combine(cwd, outDir)
-                    else
-                        Path.Combine(cwd, outDir)
-                    
-                |  _ -> cwd
+        | Ok (syntaxJson, program) -> 
+            match args with 
+            | [| |] -> 
+                printfn "No arguments provided"
+                1
+            | [| "--out"; outDir |] -> 
+                let outDirectory = 
+                    match args with
+                    | [| "--out"; outDir |] -> 
+                        if not (Directory.Exists(Path.Combine(cwd, outDir))) then
+                            let _ = Directory.CreateDirectory(Path.Combine(cwd, outDir))
+                            Path.Combine(cwd, outDir)
+                        else
+                            Path.Combine(cwd, outDir)
+                        
+                    |  _ -> cwd
 
-            let converted = PulumiConfigurationLanguage.Converter.convertToCSharp program
-            let convertedPath = Path.Combine(outDirectory, "converted-program.cs")
-            File.WriteAllText(convertedPath, converted)
-            0
+                let converted = PulumiConfigurationLanguage.Converter.convertToCSharp program
+                let convertedPath = Path.Combine(outDirectory, "converted-program.cs")
+                File.WriteAllText(convertedPath, converted)
+                0
+
+            | [| "--show-syntax-tree" |] -> 
+                printfn "%A" program
+                0
+
+            | [| "--show-pcl-json" |] ->
+                printfn "%s" syntaxJson
+                0
+        
+            | _ ->
+                printfn "Invalid arguments"
+                1
+
 
         | Error err ->
             printfn "Error converting program: %s" err

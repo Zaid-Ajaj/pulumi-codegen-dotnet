@@ -3,10 +3,6 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <ToolCommandName>pulumi-program-convert</ToolCommandName>
-    <PackAsTool>true</PackAsTool>
-    <IsPackable>true</IsPackable>
-    <Version>0.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,7 +10,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\PulumiConfigurationLanguage\PulumiConfigurationLanguage.fsproj" />
+    <PackageReference Include="Fake.Core.Environment" Version="5.23.1" />
+    <PackageReference Include="Fake.Core.Target" Version="5.23.1" />
   </ItemGroup>
 
 </Project>

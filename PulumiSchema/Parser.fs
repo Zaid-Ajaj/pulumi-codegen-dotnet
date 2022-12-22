@@ -3,6 +3,18 @@ module PulumiSchema.Parser
 open Newtonsoft.Json.Linq
 open Types
 
+let canonicalToken (token: string) = 
+    match token.Split("::") with
+    | [| package; typeName |] -> $"{package}:index:{typeName}"
+    | _ ->
+        match token.Split(":") with
+        | [| package; moduleName; typeName |] -> 
+            match moduleName.Split "/" with
+            | [| firstPart; secondPart |] -> $"{package}:{firstPart}:{typeName}"
+            | _ -> $"{package}:{moduleName}:{typeName}"
+        | _ ->
+            failwith $"invalid token {token}"
+
 let private optionalText (json: JObject) (key: string) : string option =
     match json.[key] with
     | :? JValue as value when value.Type = JTokenType.String -> Some(value.Value.ToString())
@@ -293,7 +305,7 @@ let parseSchema (json: string) : Schema =
         if schemaJson.ContainsKey "functions" && schemaJson["functions"].Type = JTokenType.Object then 
             let functionsJson = schemaJson["functions"] :?> JObject
             for functionJson in functionsJson.Properties() do
-                let functionTypeToken = functionJson.Name
+                let functionTypeToken = canonicalToken functionJson.Name
                 let functionDef = functionJson.Value :?> JObject
                 functionTypeToken, parseFunction functionTypeToken functionDef
     ]
@@ -302,7 +314,7 @@ let parseSchema (json: string) : Schema =
         if schemaJson.ContainsKey "resources" && schemaJson["resources"].Type = JTokenType.Object then 
             let resourcesJson = schemaJson["resources"] :?> JObject
             for resoureJson in resourcesJson.Properties() do
-                let resourceTypeToken = resoureJson.Name
+                let resourceTypeToken = canonicalToken resoureJson.Name
                 let resourceDef = resoureJson.Value :?> JObject
                 resourceTypeToken, parseResource resourceTypeToken functions resourceDef
     ]
@@ -311,7 +323,7 @@ let parseSchema (json: string) : Schema =
         if schemaJson.ContainsKey "types" && schemaJson["types"].Type = JTokenType.Object then 
             let typesJson = schemaJson["types"] :?> JObject
             for typeJson in typesJson.Properties() do
-                let typeToken = typeJson.Name
+                let typeToken = canonicalToken typeJson.Name
                 let typeDef = typeJson.Value :?> JObject
                 typeToken, parseTypeDefinition typeDef
     ]

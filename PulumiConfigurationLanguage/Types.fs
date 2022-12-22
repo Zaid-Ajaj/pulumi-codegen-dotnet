@@ -25,6 +25,7 @@ type ConditionalExpression = { condition: SyntaxExpr; trueExpr: SyntaxExpr; fals
 type BinaryOpExpression = { left: SyntaxExpr; right: SyntaxExpr; operation: string }
 type UnaryOpExpression = { operand: SyntaxExpr; operation: string }
 type AnonymousFunctionExpression = { parameters: string list; body: SyntaxExpr }
+type FunctionInvokeExpression = { token: string; args: ObjectConsExpression }
 
 [<RequireQualifiedAccess>]
 type SyntaxExpr = 
@@ -33,6 +34,7 @@ type SyntaxExpr =
     | ObjectConsExpression of ObjectConsExpression
     | TupleConsExpression of TupleConsExpression
     | FunctionCallExpression of FunctionCallExpression
+    | FunctionInvokeExpression of FunctionInvokeExpression
     | ScopeTraversalExpression of ScopeTraversalExpression
     | RelativeTraversalExpression of RelativeTraversalExpression
     | IndexExpression of IndexExpression
