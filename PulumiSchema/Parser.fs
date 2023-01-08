@@ -5,15 +5,15 @@ open Types
 
 let canonicalToken (token: string) = 
     match token.Split("::") with
-    | [| package; typeName |] -> $"{package}:index:{typeName}"
+    | [| package; typeName |] -> sprintf "%s:index:%s" package typeName
     | _ ->
         match token.Split(":") with
         | [| package; moduleName; typeName |] -> 
             match moduleName.Split "/" with
-            | [| firstPart; secondPart |] -> $"{package}:{firstPart}:{typeName}"
-            | _ -> $"{package}:{moduleName}:{typeName}"
+            | [| firstPart; secondPart |] -> sprintf "%s:%s:%s" package firstPart typeName
+            | _ -> sprintf "%s:%s:%s" package moduleName typeName
         | _ ->
-            failwith $"invalid token {token}"
+            failwithf "invalid token %s" token
 
 let private optionalText (json: JObject) (key: string) : string option =
     match json.[key] with
@@ -23,7 +23,7 @@ let private optionalText (json: JObject) (key: string) : string option =
 let private text (json: JObject) (key: string) : string =
     match json.[key] with
     | :? JValue as value when value.Type = JTokenType.String -> value.Value.ToString()
-    | _ -> failwithf $"Expected %s{key} to be a string"
+    | _ -> failwithf "Expected '%s' to be a string" key
 
 let private readBoolean (json: JObject) (key: string) : bool =
     match json.[key] with
@@ -168,7 +168,7 @@ and parseType (typeJson: JObject) : SchemaType =
         |> Seq.toList
         |> SchemaType.Union
     else 
-        failwith $"Invalid type definition: \n{typeJson.ToString()}"
+        failwithf "Invalid type definition: \n%s" (typeJson.ToString())
 
 let parseResource (token: string) (functions: Map<string, Function>) (resourceJson: JObject) : Resource =
     let requiredInputs = optionalArrayText resourceJson "requiredInputs" |> Option.defaultValue []
@@ -284,7 +284,7 @@ let parseProvider (name: string) functions (schemaJson: JObject) =
         if providerJson.Count = 0 then
             None
         else
-            Some (parseResource $"pulumi:providers:{name}" functions providerJson)
+            Some (parseResource (sprintf "pulumi:providers:%s" name) functions providerJson)
     else 
         None
 
