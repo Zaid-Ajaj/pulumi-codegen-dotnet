@@ -29,7 +29,7 @@ type SchemaLoader() =
             | Some version -> sprintf "%s@%s" pluginName version
             | None -> pluginName
 
-        let getSchema = Cli.Wrap("pulumi").WithArguments(sprintf "package get-schema %s" packageName)
+        let getSchema = Cli.Wrap("pulumi").WithArguments(sprintf "package get-schema %s" packageName).WithValidation(CommandResultValidation.None)
         let output = getSchema.ExecuteBufferedAsync().GetAwaiter().GetResult()
         if output.ExitCode <> 0 then
             Error output.StandardError
