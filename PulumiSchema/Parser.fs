@@ -135,7 +135,7 @@ and parseType (typeJson: JObject) : SchemaType =
             SchemaType.IntegerEnum (Seq.toList cases)
 
         | otherwise ->
-            failwithf "Invalid enum definition from type: %s" otherwise
+            SchemaType.Any
 
     elif typeJson.ContainsKey "type" then 
         match string typeJson.["type"] with
@@ -154,7 +154,7 @@ and parseType (typeJson: JObject) : SchemaType =
             let additionalProperties = parseType (typeJson.["additionalProperties"] :?> JObject)
             SchemaType.Map additionalProperties
         | otherwise ->
-            failwithf "Invalid type definition: %s" otherwise
+            SchemaType.Any
 
     elif typeJson.ContainsKey "properties" then 
         let properties = parseProperties typeJson
@@ -168,7 +168,7 @@ and parseType (typeJson: JObject) : SchemaType =
         |> Seq.toList
         |> SchemaType.Union
     else 
-        failwithf "Invalid type definition: \n%s" (typeJson.ToString())
+        SchemaType.Any
 
 let parseResource (token: string) (functions: Map<string, Function>) (resourceJson: JObject) : Resource =
     let requiredInputs = optionalArrayText resourceJson "requiredInputs" |> Option.defaultValue []
@@ -307,7 +307,7 @@ let parseSchema (json: string) : Schema =
             for functionJson in functionsJson.Properties() do
                 let functionTypeToken = canonicalToken functionJson.Name
                 let functionDef = functionJson.Value :?> JObject
-                functionTypeToken, parseFunction functionTypeToken functionDef
+                functionJson.Name, parseFunction functionTypeToken functionDef
     ]
 
     let resources = Map.ofList [
@@ -316,7 +316,7 @@ let parseSchema (json: string) : Schema =
             for resoureJson in resourcesJson.Properties() do
                 let resourceTypeToken = canonicalToken resoureJson.Name
                 let resourceDef = resoureJson.Value :?> JObject
-                resourceTypeToken, parseResource resourceTypeToken functions resourceDef
+                resoureJson.Name, parseResource resourceTypeToken functions resourceDef
     ]
 
     let types = Map.ofList [
@@ -325,7 +325,7 @@ let parseSchema (json: string) : Schema =
             for typeJson in typesJson.Properties() do
                 let typeToken = canonicalToken typeJson.Name
                 let typeDef = typeJson.Value :?> JObject
-                typeToken, parseTypeDefinition typeDef
+                typeJson.Name, parseTypeDefinition typeDef
     ]
 
     let dotnetPackageInfo = parseDotnetPackageInfo schemaJson
